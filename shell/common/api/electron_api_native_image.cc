@@ -556,18 +556,7 @@ bool Converter<electron::api::NativeImage*>::FromV8(
   base::FilePath path;
   if (ConvertFromV8(isolate, val, &path)) {
     *out = electron::api::NativeImage::CreateFromPath(isolate, path).get();
-    if ((*out)->image().IsEmpty()) {
-#if defined(OS_WIN)
-      const auto img_path = base::UTF16ToUTF8(path.value());
-#else
-      const auto img_path = path.value();
-#endif
-      isolate->ThrowException(v8::Exception::Error(
-          StringToV8(isolate, "Image could not be created from " + img_path)));
-      return false;
-    }
-
-    return true;
+    return !(*out)->image().IsEmpty();
   }
 
   *out = static_cast<electron::api::NativeImage*>(
