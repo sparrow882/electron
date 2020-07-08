@@ -186,6 +186,24 @@ void AtomURLLoaderFactory::Clone(
   bindings_.AddBinding(this, std::move(request));
 }
 
+std::string ComputeMethodForRedirect(const std::string& method,
+                                     int http_status_code) {
+  // For 303 redirects, all request methods except HEAD are converted to GET,
+  // as per the latest httpbis draft.  The draft also allows POST requests to
+  // be converted to GETs when following 301/302 redirects, for historical
+  // reasons. Most major browsers do this and so shall we.  Both RFC 2616 and
+  // the httpbis draft say to prompt the user to confirm the generation of new
+  // requests, other than GET and HEAD requests, but IE omits these prompts and
+  // so shall we.
+  // See: https://tools.ietf.org/html/rfc7231#section-6.4
+  if ((http_status_code == 303 && method != "HEAD") ||
+      ((http_status_code == 301 || http_status_code == 302) &&
+       method == "POST")) {
+    return "GET";
+  }
+  return method;
+}
+
 // static
 void AtomURLLoaderFactory::StartLoading(
     network::mojom::URLLoaderRequest loader,
@@ -235,10 +253,13 @@ void AtomURLLoaderFactory::StartLoading(
     new_request.url = new_location;
     new_request.site_for_cookies = new_location;
 
+    auto newMethod =
+        ComputeMethodForRedirect(request.method, head.headers->response_code());
+    auto newUrl = request.url.Resolve(location);
+    network::ResourceRequest new_request = request;
+    new_request.url = newUrl;
     net::RedirectInfo redirect_info;
     redirect_info.status_code = head.headers->response_code();
-    redirect_info.new_method = request.method;
-    redirect_info.new_url = new_location;
     redirect_info.new_site_for_cookies = new_location;
 
     client->OnReceiveRedirect(redirect_info, head);
