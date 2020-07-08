@@ -256,7 +256,6 @@ void AtomURLLoaderFactory::StartLoading(
     auto newMethod =
         ComputeMethodForRedirect(request.method, head.headers->response_code());
     auto newUrl = request.url.Resolve(location);
-    network::ResourceRequest new_request = request;
     new_request.url = newUrl;
     net::RedirectInfo redirect_info;
     redirect_info.status_code = head.headers->response_code();
