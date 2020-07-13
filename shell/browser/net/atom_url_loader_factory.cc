@@ -127,6 +127,10 @@ network::ResourceResponseHead ToResponseHead(const mate::Dictionary& dict) {
         head.headers->GetMimeTypeAndCharset(&head.mime_type, &head.charset);
         has_content_type = true;
       }
+
+      if (base::ToLowerASCII(iter.first) == "content-length") {
+        head.content_length = std::stol(iter.second.GetString());
+      }
     }
   }
 
