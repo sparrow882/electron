@@ -230,7 +230,6 @@ void AtomURLLoaderFactory::StartLoading(
         network::URLLoaderCompletionStatus(net::ERR_NOT_IMPLEMENTED));
     return;
   }
-
   // Parse {error} object.
   mate::Dictionary dict = ToDict(args->isolate(), response);
   if (!dict.IsEmpty()) {
@@ -240,9 +239,7 @@ void AtomURLLoaderFactory::StartLoading(
       return;
     }
   }
-
   network::ResourceResponseHead head = ToResponseHead(dict);
-
   // Handle redirection.
   //
   // Note that with NetworkService, sending the "Location" header no longer
@@ -251,22 +248,19 @@ void AtomURLLoaderFactory::StartLoading(
   // API in WebRequestProxyingURLLoaderFactory.
   std::string location;
   if (head.headers->IsRedirect(&location)) {
-    network::ResourceRequest new_request = request;
-    GURL new_location = GURL(location);
-
-    new_request.url = new_location;
-    new_request.site_for_cookies = new_location;
-
     auto newMethod =
         ComputeMethodForRedirect(request.method, head.headers->response_code());
-    auto newUrl = request.url.Resolve(location);
-    new_request.url = newUrl;
+    auto newLocation = request.url.Resolve(location);
+    network::ResourceRequest new_request = request;
+    new_request.url = newLocation;
+    new_request.site_for_cookies = newLocation;
+    new_request.method = newMethod;
     net::RedirectInfo redirect_info;
     redirect_info.status_code = head.headers->response_code();
-    redirect_info.new_site_for_cookies = new_location;
-
+    redirect_info.new_method = newMethod;
+    redirect_info.new_url = newLocation;
+    redirect_info.new_site_for_cookies = newLocation;
     client->OnReceiveRedirect(redirect_info, head);
-
     // When the redirection comes from an intercepted scheme (which has
     // |proxy_factory| passed), we askes the proxy factory to create a loader
     // for new URL, otherwise we call |StartLoadingHttp|, which creates
@@ -276,7 +270,7 @@ void AtomURLLoaderFactory::StartLoading(
     // with default factory (i.e. calling StartLoadingHttp) would bypass the
     // ProxyingURLLoaderFactory, we have to explicitly use the proxy factory to
     // create loader so it is possible to have handlers of intercepted scheme
-    // getting called recursively, which is a behavior expected in protocol
+    // getting called recursively, which is a behavior expected in protocolb
     // module.
     //
     // I'm not sure whether this is an intended behavior in Chromium.
@@ -291,14 +285,12 @@ void AtomURLLoaderFactory::StartLoading(
     }
     return;
   }
-
   // Some protocol accepts non-object responses.
   if (dict.IsEmpty() && ResponseMustBeObject(type)) {
     client->OnComplete(
         network::URLLoaderCompletionStatus(net::ERR_NOT_IMPLEMENTED));
     return;
   }
-
   switch (type) {
     case ProtocolType::kBuffer:
       StartLoadingBuffer(std::move(client), std::move(head), dict);
